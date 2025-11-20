@@ -188,7 +188,7 @@ st.markdown("""
         background: linear-gradient(135deg, #1d2b64, #30507a, #1d2b64, #30507a);
         background-size: 400% 400%; 
         /* Apply the animation: 20s duration, smooth easing, infinite loop */
-        animation: gradient_shift 20s ease infinite; 
+        animation: gradient_shift 10s ease infinite; 
         color: #ffffff;
         min-height: 100vh;
     }
@@ -482,4 +482,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
