@@ -8,7 +8,7 @@ from PIL import Image
 
 # --- API Configuration ---
 # NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
-API_KEY = "AIzaSyD1JUiM1zI_FO5rBBOGVttk-zrpflTd6KI" 
+API_KEY = "AIzaSyAkbVCUlc5CJrx26JR4bGnwTLHgrMlRMfc" 
 MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
 # FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
@@ -220,7 +220,7 @@ st.markdown("""
         /* NEW: Animation Properties */
         white-space: nowrap;       /* Force text to stay on one line */
         overflow: visible;         /* Allow it to move outside its box */
-        animation: slide_left 15s linear infinite; /* 15s duration, continuous loop */
+        
     }
     
     /* Hover effect to pause the title so users can read it easily if they want */
