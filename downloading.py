@@ -220,7 +220,7 @@ st.markdown("""
         /* NEW: Animation Properties */
         white-space: nowrap;       /* Force text to stay on one line */
         overflow: visible;         /* Allow it to move outside its box */
-        
+        animation: slide_left 15s linear infinite; /* 15s duration, continuous loop */
     }
     
     /* Hover effect to pause the title so users can read it easily if they want */
