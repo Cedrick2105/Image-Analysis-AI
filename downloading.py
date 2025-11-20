@@ -175,31 +175,58 @@ st.set_page_config(
 # Custom CSS for a strong, modern look
 st.markdown("""
 <style>
-    /* 1. Define the animation for gradient shift */
+    /* 1. Define the animation for gradient shift (Background) */
     @keyframes gradient_shift {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
 
-    /* 2. Apply the animated background to the main app container */
+    /* 2. Define the animation for the Title (Right to Left) */
+    @keyframes slide_left {
+        0% {
+            transform: translateX(100%); /* Start off-screen right */
+            opacity: 0;
+        }
+        10% {
+            opacity: 1;
+        }
+        90% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateX(-100%); /* End off-screen left */
+            opacity: 0;
+        }
+    }
+
+    /* 3. Apply the animated background to the main app container */
     .stApp {
-        /* Use a larger background size for the shift */
         background: linear-gradient(135deg, #1d2b64, #30507a, #1d2b64, #30507a);
         background-size: 400% 400%; 
-        /* Apply the animation: 20s duration, smooth easing, infinite loop */
         animation: gradient_shift 10s ease infinite; 
         color: #ffffff;
         min-height: 100vh;
     }
     
-    /* Header and Title Styling */
+    /* Header and Title Styling with Animation */
     h1 {
         color: #f7f7f7;
         text-align: center;
         margin-bottom: 0.2em;
         font-weight: 800;
         text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        
+        /* NEW: Animation Properties */
+        white-space: nowrap;       /* Force text to stay on one line */
+        overflow: visible;         /* Allow it to move outside its box */
+        animation: slide_left 15s linear infinite; /* 15s duration, continuous loop */
+    }
+    
+    /* Hover effect to pause the title so users can read it easily if they want */
+    h1:hover {
+        animation-play-state: paused;
+        cursor: default;
     }
     
     /* Main Content Card (Input/Output Area) */
@@ -240,9 +267,9 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
     
-    /* NEW: Styling for the File Uploader Button (Upload an Image) */
+    /* Styling for the File Uploader Button */
     div[data-testid="stFileUploader"] button {
-        background-color: #3CB371; /* Medium Sea Green */
+        background-color: #3CB371; 
         color: white;
         font-weight: bold;
         border: none;
@@ -251,17 +278,15 @@ st.markdown("""
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
     div[data-testid="stFileUploader"] button:hover {
-        background-color: #4CAF50; /* Brighter green on hover */
+        background-color: #4CAF50; 
     }
 
-
-    /* Reverting Styling for Navigation Buttons (To match dark theme) */
-    /* Target the columns containing the navigation buttons for distinct styling */
+    /* Navigation Buttons Styling */
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(4) .stButton button {
-        background-color: #30507a; /* Dark Blue from gradient */
+        background-color: #30507a; 
         border: 1px solid #1d2b64;
     }
 
@@ -269,10 +294,10 @@ st.markdown("""
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button:hover,
     div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button:hover,
     div[data-testid="stHorizontalBlock"] > div:nth-child(4) .stButton button:hover {
-        background-color: #1d2b64; /* Even darker blue on hover */
+        background-color: #1d2b64; 
     }
 
-    /* Result Box (Grounded Text) */
+    /* Result Box */
     .analysis-output {
         background-color: rgba(255, 255, 255, 0.95);
         color: #1d2b64;
@@ -300,10 +325,8 @@ st.markdown("""
     .source-list a:hover {
         text-decoration: underline;
     }
-
 </style>
 """, unsafe_allow_html=True)
-
 
 def main():
     st.title("🧠 Image Analyzer AI")
@@ -482,7 +505,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()
-
-
