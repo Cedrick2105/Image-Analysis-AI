@@ -329,7 +329,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def main():
-    st.title("🧠 Image Analyzer AI")
+    st.title("🧠 Cedrick vision")
     st.markdown("Use AI to analyze any image and fetch real-time context from the web.")
     st.caption("Model: Gemini 2.5 Flash with Google Search Grounding")
    
@@ -355,7 +355,7 @@ def main():
             prompt = st.text_area(
                 "Ask a question about the image or describe what you want the AI to talk about:",
                 height=150,
-                value="Describe the item, tell me its historical context, and find the current market price or comparable items.",
+                placeholder="Describe the item, tell me its historical context, and find the current market price or comparable items.",
                 key="prompt_input"
             )
             
