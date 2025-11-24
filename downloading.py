@@ -7,10 +7,13 @@ import json
 from PIL import Image
 
 # --- API Configuration ---
-# NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
-API_KEY = "AIzaSyDqrUbdmC8EB8tomrpMVczVHj5GSSjJq5k" 
-MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
-# FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
+# ⚠️ SECURITY NOTE: Put your NEW API key here. Do not share this code with the key inside.
+API_KEY = "AIzaSyAKA0kI4_Vgmox1LUsOy-QSPQXeRFObQ50" 
+
+# UPDATED: Changed to the currently active model version
+MODEL_NAME = "gemini-1.5-flash"
+
+# FIX: Removed leading space in URL
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
 # --- Session State Initialization ---
@@ -331,7 +334,8 @@ st.markdown("""
 def main():
     st.title("🧠 Image Analyzer AI")
     st.markdown("Use AI to analyze any image and fetch real-time context from the web.")
-    st.caption("Model: Gemini 2.5 Flash with Google Search Grounding")
+    # UPDATED CAPTION
+    st.caption("Model: Gemini 1.5 Flash with Google Search Grounding")
    
     if not st.session_state.show_help and not st.session_state.show_about:
         col_img, col_prompt = st.columns([1, 2])
@@ -484,7 +488,7 @@ def main():
         
         with col_about1:
             st.markdown("### 🧠 AI Model")
-            st.markdown("**Gemini 2.5 Flash** is used for multimodal analysis, allowing it to interpret both the visual data (the image) and the text query.")
+            st.markdown("**Gemini 1.5 Flash** is used for multimodal analysis, allowing it to interpret both the visual data (the image) and the text query.")
             
         with col_about2:
             st.markdown("### 🌐 Grounding")
