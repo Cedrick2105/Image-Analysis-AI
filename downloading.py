@@ -6,16 +6,15 @@ import time
 import json
 from PIL import Image
 
+API_KEY = "AIzaSyD-_D5eTA4Q_E3giOoBopk84OSYyQ_9T60" 
 
-API_KEY = "AIzaSyDoYT6ZrOUPBgzJYV3esZzWZKQ8jxGZI6E" 
-OPENAI_API_KEY = "AIzaSyCE3zXcZpmDYnpeR3VfRcQ32PYSlREkrNQ"
 
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = "gemini-2.5-flash" 
 
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions" 
 
-
+# --- Session State Initialization ---
+# Initialize state variables to store results persistently
 if 'analysis_text' not in st.session_state:
     st.session_state.analysis_text = ""
 if 'sources' not in st.session_state:
@@ -42,7 +41,8 @@ def image_to_base64(img_file):
 
 def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5):
     """
-    Calls the Gemini API with image, text, and Google Search grounding.
+    Calls the Gemini API with image, text, and Google Search grounding, 
+    implementing exponential backoff and comprehensive error handling.
     """
     
     # 1. Define the content payload (text + image)
@@ -67,9 +67,8 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
         # This is the key that enables Google Search grounding!
         "tools": [{"google_search": {}}],
         # System instruction to guide the model's persona and response
-        "systemInstruction": {
-            # MODIFIED: Changed the persona to a conversational chatbot AI
-            "parts": [{"text": "You are a friendly and conversational chatbot AI designed to analyze images. Respond directly to the user's query about the image. Use Google Search grounding to incorporate real-time, relevant information into your chat response. Keep the tone helpful and engaging."}]
+        "config": { # Used 'config' key for system instruction
+            "systemInstruction": "You are a friendly and conversational chatbot AI designed to analyze images. Respond directly to the user's query about the image. Use Google Search grounding to incorporate real-time, relevant information into your chat response. Keep the tone helpful and engaging."
         }
     }
 
@@ -86,6 +85,20 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
                 result = response.json()
             except json.JSONDecodeError:
                 return f"API response error: Could not decode JSON response from API. Raw content: {response.text}", []
+            
+            # Check for error message in the API response JSON itself
+            if 'error' in result:
+                 error_details = result['error'].get('message', 'Unknown API Error.')
+                 status_code = result['error'].get('code', 'N/A')
+                 
+                 # Handle common authentication error
+                 if status_code == 400 or "API key not valid" in error_details:
+                     return (
+                         f"Authentication Error (400/403). **Your API Key is likely invalid or missing the Generative Language API permission.** "
+                         f"Please check and replace `YOUR_NEW_GOOGLE_API_KEY`."
+                     ), []
+                 
+                 return f"API Error ({status_code}): {error_details}", []
             
             candidate = result.get('candidates', [{}])[0]
             
@@ -111,19 +124,22 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
 
         except requests.exceptions.HTTPError as e:
             if response.status_code == 403:
+                # Specific handler for 403 Forbidden error (API Key issue)
                 error_message = (
-                    f"Authorization Error (403 Forbidden). "
-                    f"This usually means the API key is not correctly provided."
+                    f"Authorization Error (403 Forbidden). **Your API Key is invalid or lacks necessary permissions.** "
+                    f"Please check your key and ensure the Generative Language API is enabled in your Google Cloud Project."
                 )
                 return error_message, []
                 
             if response.status_code in [429, 500, 503] and attempt < max_retries - 1:
+                # Handle rate limiting or server errors with exponential backoff
                 sleep_time = 2 ** attempt
                 time.sleep(sleep_time)
             else:
                 return f"HTTP Error after max retries: {e}", []
         
         except requests.exceptions.RequestException as e:
+            # Handle general network/connectivity errors (DNS, timeout, connection refused, etc.)
             if attempt < max_retries - 1:
                 sleep_time = 2 ** attempt
                 time.sleep(sleep_time)
@@ -135,64 +151,20 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
     
     return "Failed to get a response after all retries.", []
 
-# --- NEW FUNCTION FOR OPENAI ---
-def call_openai_api(prompt, base64_data, mime_type):
-    """
-    Calls the OpenAI GPT-4o API with image and text.
-    """
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {OPENAI_API_KEY}"
-    }
-
-    payload = {
-        "model": "gpt-4o",
-        "messages": [
-            {
-                "role": "system",
-                "content": "You are a friendly and conversational chatbot AI designed to analyze images. Respond directly to the user's query about the image."
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime_type};base64,{base64_data}"
-                        }
-                    }
-                ]
-            }
-        ],
-        "max_tokens": 1000
-    }
-
-    try:
-        response = requests.post(OPENAI_API_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        result = response.json()
-        
-        text = result['choices'][0]['message']['content']
-        # OpenAI does not typically return search sources like Gemini Grounding, so we return empty list
-        return text, [] 
-    except Exception as e:
-        return f"OpenAI API Error: {str(e)}", []
-
 def copy_to_clipboard_js(text):
     """
     Injects JavaScript to copy text to clipboard.
+    This is necessary because Python code runs on the server and cannot access 
+    the client's clipboard directly.
     """
+    # Robustly escape quotes and newlines for the JavaScript string
     safe_text = text.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
     
     js_code = f"""
     <script>
         function copyText() {{
             navigator.clipboard.writeText("{safe_text}").then(function() {{
-                // Update a UI element to confirm copy
+                // Update a UI element to confirm copy (using st.toast for Streamlit-native feedback)
             }}, function(err) {{
                 console.error('Could not copy text: ', err);
             }});
@@ -223,10 +195,20 @@ st.markdown("""
 
     /* 2. Define the animation for the Title (Right to Left) */
     @keyframes slide_left {
-        0% { transform: translateX(100%); opacity: 0; }
-        10% { opacity: 1; }
-        90% { opacity: 1; }
-        100% { transform: translateX(-100%); opacity: 0; }
+        0% {
+            transform: translateX(100%); /* Start off-screen right */
+            opacity: 0;
+        }
+        10% {
+            opacity: 1;
+        }
+        90% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateX(-100%); /* End off-screen left */
+            opacity: 0;
+        }
     }
 
     /* 3. Apply the animated background to the main app container */
@@ -238,21 +220,27 @@ st.markdown("""
         min-height: 100vh;
     }
     
+    /* Header and Title Styling with Animation */
     h1 {
         color: #f7f7f7;
         text-align: center;
         margin-bottom: 0.2em;
         font-weight: 800;
         text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-        white-space: nowrap; 
-        overflow: visible; 
+        
+        /* NEW: Animation Properties */
+        white-space: nowrap;      /* Force text to stay on one line */
+        overflow: visible;         /* Allow it to move outside its box */
+        
     }
     
+    /* Hover effect to pause the title so users can read it easily if they want */
     h1:hover {
         animation-play-state: paused;
         cursor: default;
     }
     
+    /* Main Content Card (Input/Output Area) */
     .stVerticalBlock {
         background-color: rgba(255, 255, 255, 0.08);
         padding: 30px;
@@ -261,11 +249,17 @@ st.markdown("""
         margin-top: 20px;
     }
 
-    label, .stTextInput > div > div > input { color: #f7f7f7 !important; }
-    .stTextArea label { color: #f7f7f7 !important; }
+    /* Input Labels and Text Area */
+    label, .stTextInput > div > div > input {
+        color: #f7f7f7 !important;
+    }
+    .stTextArea label {
+        color: #f7f7f7 !important;
+    }
     
+    /* Global Button Styling (Applies to main Analyze button) */
     .stButton button {
-        background-color: #4CAF50;
+        background-color: #4CAF50; /* Primary Green */
         color: white;
         font-weight: bold;
         border: none;
@@ -284,6 +278,7 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
     
+    /* Styling for the File Uploader Button */
     div[data-testid="stFileUploader"] button {
         background-color: #3CB371; 
         color: white;
@@ -293,8 +288,11 @@ st.markdown("""
         transition-duration: 0.4s;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
-    div[data-testid="stFileUploader"] button:hover { background-color: #4CAF50; }
+    div[data-testid="stFileUploader"] button:hover {
+        background-color: #4CAF50; 
+    }
 
+    /* Navigation Buttons Styling */
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button,
@@ -310,6 +308,7 @@ st.markdown("""
         background-color: #1d2b64; 
     }
 
+    /* Result Box */
     .analysis-output {
         background-color: rgba(255, 255, 255, 0.95);
         color: #1d2b64;
@@ -318,8 +317,11 @@ st.markdown("""
         margin-top: 15px;
         border-left: 5px solid #4CAF50;
     }
-    .analysis-output h3 { color: #1d2b64; }
+    .analysis-output h3 {
+        color: #1d2b64;
+    }
     
+    /* Sources/Citations */
     .source-list {
         font-size: 0.85em;
         padding: 10px;
@@ -327,27 +329,22 @@ st.markdown("""
         margin-top: 10px;
         color: blue;
     }
-    .source-list a { color: green; text-decoration: none; }
-    .source-list a:hover { text-decoration: underline; }
+    .source-list a {
+        color: green;
+        text-decoration: none;
+    }
+    .source-list a:hover {
+        text-decoration: underline;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 def main():
     st.title("🧠 Image Analyzer AI")
     st.markdown("Use AI to analyze any image and fetch real-time context from the web.")
+    # UPDATED CAPTION
+    st.caption("Model: Gemini 2.5 Flash with Google Search Grounding")
     
-    # --- ADDED: Model Selector ---
-    model_option = st.selectbox(
-        "Choose AI Model:",
-        ("Gemini 1.5 Flash (Google)", "GPT-4o (OpenAI)"),
-        help="Switch between Google Gemini (with Search Grounding) and OpenAI GPT-4o"
-    )
-
-    if model_option == "Gemini 1.5 Flash (Google)":
-        st.caption("Model: Gemini 1.5 Flash with Google Search Grounding")
-    else:
-        st.caption("Model: OpenAI GPT-4o (High precision vision, no search grounding)")
-   
     if not st.session_state.show_help and not st.session_state.show_about:
         col_img, col_prompt = st.columns([1, 2])
         
@@ -357,11 +354,13 @@ def main():
                 type=["png", "jpg", "jpeg"],
                 key="image_uploader"
             )
+            # Optional: Display the image again in the output section
             if uploaded_file:
                 st.subheader("Uploaded Image Preview")
                 img = Image.open(uploaded_file)
                 st.image(img, use_container_width=True)
             else:
+                # Define uploaded_file as None if not uploaded so it's accessible outside the if block
                 uploaded_file = None
             
         with col_prompt:
@@ -374,7 +373,7 @@ def main():
             
         st.markdown("---")
         
-        if st.button("🚀 Analyze Image"):
+        if st.button("🚀 Analyze Image & Get Web Context"):
             if not uploaded_file:
                 st.error("Please upload an image to start the analysis.")
                 return
@@ -383,7 +382,7 @@ def main():
                 st.error("Please enter a prompt or question for the AI.")
                 return
 
-            with st.spinner("Analyzing image..."):
+            with st.spinner("Analyzing image, searching the web, and generating a grounded report..."):
                 
                 # 1. Convert image to base64
                 base64_data, mime_type = image_to_base64(uploaded_file)
@@ -391,23 +390,17 @@ def main():
                 if not base64_data:
                     return
 
-                # 2. Logic to choose the API
-                if model_option == "Gemini 1.5 Flash (Google)":
-                    st.session_state.analysis_text, st.session_state.sources = call_gemini_api_with_grounding(prompt, base64_data, mime_type)
-                else:
-                    # Check if OpenAI key is set
-                    if "YOUR_OPENAI_API_KEY" in OPENAI_API_KEY:
-                        st.error("Please enter a valid OpenAI API Key in the code.")
-                        return
-                    st.session_state.analysis_text, st.session_state.sources = call_openai_api(prompt, base64_data, mime_type)
+                # 2. Call the Gemini API with image and prompt
+                # Store results in session state
+                st.session_state.analysis_text, st.session_state.sources = call_gemini_api_with_grounding(prompt, base64_data, mime_type)
 
-        # --- Output Section ---
+        # --- Output Section (Hidden if Help or About is active) ---
+        # Only display output if analysis text is available in session state
         if st.session_state.analysis_text:
             st.markdown("<div class='analysis-output'>", unsafe_allow_html=True)
             st.subheader("🤖 Chatbot Analysis")
-            st.markdown(st.session_state.analysis_text) 
+            st.markdown(st.session_state.analysis_text) # Display text from session state
             
-            # Show sources only if they exist (Gemini)
             if st.session_state.sources:
                 st.markdown("<div class='source-list'>", unsafe_allow_html=True)
                 st.markdown("**🌐 Sources from Google Search:**")
@@ -415,22 +408,23 @@ def main():
                     st.markdown(f"**{i+1}.** [{source['title']}]({source['uri']})")
                 st.markdown("</div>", unsafe_allow_html=True)
             else:
-                if model_option == "Gemini 1.5 Flash (Google)":
-                    st.caption("No external search results were used for grounding this response.")
-                else:
-                    st.caption("OpenAI GPT-4o does not provide search citations.")
+                # If the grounding failed or the model chose not to use sources, this message is shown.
+                st.caption("No external search results were used for grounding this response, or the model deemed the response sufficient without external data.")
                 
             st.markdown("</div>", unsafe_allow_html=True)
             
     # --- Navigation Bar ---
     st.markdown("---")
+    # Only show Next Steps title when not in a guide view
     if not st.session_state.show_help and not st.session_state.show_about:
         st.markdown("### Other information ")
     
     col_nav1, col_nav2, col_nav3, col_nav4 = st.columns(4)
     
     with col_nav1:
+        # NOTE: This button is always visible to allow navigation back to the main app view
         if st.button("🔄 Refresh", use_container_width=True, key="nav_new_analysis",help="Refresh the AI for image analysis"):
+            # Clear state and rerun
             st.session_state.analysis_text = ""
             st.session_state.sources = []
             st.session_state.show_help = False
@@ -438,75 +432,89 @@ def main():
             st.rerun()
 
     with col_nav2:
+        # 🔗 Copy Text button logic
         is_text_available = bool(st.session_state.analysis_text) and not st.session_state.show_help and not st.session_state.show_about
         if st.button("🔗 Copy Text", use_container_width=True, key="nav_copy_text", disabled=not is_text_available, help="Copies the full analysis text to your clipboard."):
             copy_to_clipboard_js(st.session_state.analysis_text)
             st.toast("Analysis text copied to clipboard!", icon="📋")
 
     with col_nav3:
+        # ❓ Get Help button logic
         button_label = "❌ Close Help" if st.session_state.show_help else "❓ Get Help"
         if st.button(button_label, use_container_width=True, key="nav_help", help="Opens or closes the Quick Start guide."):
             st.session_state.show_help = not st.session_state.show_help
             if st.session_state.show_help:
                 st.toast("Opening Help Documentation...", icon="💡")
+            # Ensure only one guide is open at a time
             st.session_state.show_about = False
             
     with col_nav4:
+        # ℹ️ About This App button logic
         button_label = "❌ Close About" if st.session_state.show_about else "ℹ️ About This App"
         if st.button(button_label, use_container_width=True, key="nav_about", help="Learn about the technology powering this application."):
             st.session_state.show_about = not st.session_state.show_about
             if st.session_state.show_about:
                 st.toast("Opening About Information...", icon="ℹ️")
+            # Ensure only one guide is open at a time
             st.session_state.show_help = False
             
     # --- Guide Content Display ---
 
+    # Display ONLY the Help guide if requested
     if st.session_state.show_help:
         st.markdown("---")
-        st.subheader("🤖 Quick Start Guide")
-        st.info("Hello there! I'm your AI assistant for the Grounded Image Analyzer. Here are the three easy steps:")
         
+        # Friendly opening message from the assistant
+        st.subheader("🤖 Quick Start Guide")
+        st.info("Hello there! I'm your AI assistant for the Grounded Image Analyzer. Here are the three easy steps to get a powerful, web-grounded analysis of your image:")
+        
+        # Use columns to present the steps horizontally
         col_help1, col_help2, col_help3 = st.columns(3)
         
         with col_help1:
             st.markdown("### 1. ⬆️ Upload")
-            st.markdown("Use the **Upload an Image** file picker.")
+            st.markdown("Use the **Upload an Image** file picker (on the left) to select a JPEG or PNG file.")
             
         with col_help2:
             st.markdown("### 2. 📝 Prompt")
-            st.markdown("Ask a specific question about the image.")
+            st.markdown("Ask a specific question about the image (e.g., historical context, current value, identification, etc.).")
             
         with col_help3:
             st.markdown("### 3. 🚀 Analyze")
-            st.markdown("Click **🚀 Analyze Image**. Select Gemini for Search Grounding or GPT-4o for reasoning.")
+            st.markdown("Click **🚀 Analyze Image** to start the Gemini model, which also performs a live Google Search for grounding.")
             
         st.markdown("---")
         
+    # Display ONLY the About guide if requested
     elif st.session_state.show_about:
         st.markdown("---")
+        
         st.subheader("💡 About Cedrick Vision")
         st.info("This application is a demonstration of powerful multimodal AI and real-time information retrieval.")
         
         col_about1, col_about2, col_about3,col_about4 = st.columns(4)
         
         with col_about1:
-            st.markdown("### 🧠 AI Models")
-            st.markdown("**Gemini 1.5 Flash** & **OpenAI GPT-4o** are used for multimodal analysis.")
+            st.markdown("### 🧠 AI Model")
+            st.markdown("**Gemini 2.5 Flash** is used for multimodal analysis, allowing it to interpret both the visual data (the image) and the text query.")
             
         with col_about2:
             st.markdown("### 🌐 Grounding")
-            st.markdown("**Google Search Grounding** is enabled via the Gemini API.")
+            st.markdown("**Google Search Grounding** is enabled via the API, ensuring that the AI's response is backed by current, real-time web information and citations.")
             
         with col_about3:
             st.markdown("### 🛠️ Framework")
-            st.markdown("Built entirely using **Streamlit**.")
+            st.markdown("The interactive user interface is built entirely using **Streamlit**, a Python library designed for creating data applications quickly.")
+        
         
         with col_about4:
             st.markdown("### 📞 Communication")
             st.markdown("Phone:0796286762")
             st.markdown("Email:sangwaineza2@gmail.com")
-            st.markdown("YouTube:Cedrick ETE engineer")    
+            st.markdown("YouTube:Cedrick ETE engineer")     
         st.markdown("---")
+    # --- END NAVIGATION BAR ---
+
 
 if __name__ == "__main__":
     main()
