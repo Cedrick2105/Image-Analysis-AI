@@ -8,7 +8,7 @@ from PIL import Image
 
 # --- API Configuration ---
 # NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
-API_KEY = "AIzaSyDXu4wewJmbEZszWeDkwIkkHd_49awPbmU" 
+API_KEY = "AIzaSyD4mfI5pgZ3N2Im4mDlPvdyJ6le9AirWRE" 
 MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
 # FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
@@ -21,7 +21,7 @@ if 'sources' not in st.session_state:
     st.session_state.sources = []
 if 'show_help' not in st.session_state:
     st.session_state.show_help = False
-# NEW: State for controlling the visibility of the "About" guide
+
 if 'show_about' not in st.session_state:
     st.session_state.show_about = False
 
@@ -77,9 +77,9 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
     
     for attempt in range(max_retries):
         try:
-            # The actual API call
+           
             response = requests.post(API_URL, headers=headers, data=json.dumps(payload))
-            response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+            response.raise_for_status()  
             
             # Safely attempt JSON decoding
             try:
