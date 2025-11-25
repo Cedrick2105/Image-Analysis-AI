@@ -8,7 +8,7 @@ from PIL import Image
 
 # --- API Configuration ---
 # NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
-API_KEY = "AIzaSyBScPL-H0zvWfjOFKkvL5qrXG8x5fUzMas" 
+API_KEY = "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" 
 MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
 # FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
