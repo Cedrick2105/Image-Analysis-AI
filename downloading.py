@@ -8,7 +8,7 @@ from PIL import Image
 
 # --- API Configuration ---
 # NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
-API_KEY = "AIzaSyDS_m2z9jiRDA4mlwS1L1kkDrKQIYQf8g4" 
+API_KEY = "AIzaSyBScPL-H0zvWfjOFKkvL5qrXG8x5fUzMas" 
 MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
 # FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
@@ -332,7 +332,7 @@ def main():
             prompt = st.text_area(
                 "Ask a question about the image or describe what you want the AI to talk about:",
                 height=150,
-                value="Describe the item, tell me its historical context, and find the current market price or comparable items.",
+                placeholder="Describe the item, tell me its historical context, and find the current market price or comparable items.",
                 key="prompt_input"
             )
             
