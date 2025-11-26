@@ -6,12 +6,10 @@ import time
 import json
 from PIL import Image
 
-# --- API Configuration ---
-# NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
-API_KEY = "AIzaSyBScPL-H0zvWfjOFKkvL5qrXG8x5fUzMas" 
-MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
+API_KEY = "AIzaSyCIl9oT3_MJ50kPoVIk9bOgq3-_P0fpwgY" 
+MODEL_NAME = "google/gemini-2.0-flash-exp:free"
 # FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
+API_URL = f"https://openrouter.ai/api/v1/chat/completions/{MODEL_NAME}:generateContent?key={API_KEY}"
 
 # --- Session State Initialization ---
 # Initialize state variables to store results persistently
