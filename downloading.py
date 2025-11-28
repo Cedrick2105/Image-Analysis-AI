@@ -6,10 +6,12 @@ import time
 import json
 from PIL import Image
 
-API_KEY = "AIzaSyCIl9oT3_MJ50kPoVIk9bOgq3-_P0fpwgY" 
-MODEL_NAME = "google/gemini-2.0-flash-exp:free"
+# --- API Configuration ---
+# NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
+API_KEY = "AIzaSyDaJJxx2bbzbE2jBKxcmp9jjyl11fVn8Xs" 
+MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
 # FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
-API_URL = f"https://openrouter.ai/api/v1/chat/completions/{MODEL_NAME}:generateContent?key={API_KEY}"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
 # --- Session State Initialization ---
 # Initialize state variables to store results persistently
@@ -19,7 +21,7 @@ if 'sources' not in st.session_state:
     st.session_state.sources = []
 if 'show_help' not in st.session_state:
     st.session_state.show_help = False
-
+# NEW: State for controlling the visibility of the "About" guide
 if 'show_about' not in st.session_state:
     st.session_state.show_about = False
 
@@ -75,9 +77,9 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
     
     for attempt in range(max_retries):
         try:
-           
+            # The actual API call
             response = requests.post(API_URL, headers=headers, data=json.dumps(payload))
-            response.raise_for_status()  
+            response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
             
             # Safely attempt JSON decoding
             try:
@@ -186,7 +188,7 @@ st.markdown("""
         background: linear-gradient(135deg, #1d2b64, #30507a, #1d2b64, #30507a);
         background-size: 400% 400%; 
         /* Apply the animation: 20s duration, smooth easing, infinite loop */
-        animation: gradient_shift 10s ease infinite; 
+        animation: gradient_shift 20s ease infinite; 
         color: #ffffff;
         min-height: 100vh;
     }
@@ -304,10 +306,20 @@ st.markdown("""
 
 
 def main():
-    st.title("🧠 Image Analyzer AI")
+    st.title("Cedrick Image Analyzer")
     st.markdown("Use AI to analyze any image and fetch real-time context from the web.")
     st.caption("Model: Gemini 2.5 Flash with Google Search Grounding")
-   
+    
+    st.markdown("---")
+
+    # --- Model Info Display (Addressing User Request) ---
+    st.sidebar.subheader("Model Information")
+    st.sidebar.markdown(f"**Model Name:** `{MODEL_NAME}`")
+    st.sidebar.markdown(f"**API Endpoint:** `.../v1beta/models/{MODEL_NAME}:generateContent`")
+    st.sidebar.markdown("*(The app uses the REST API method for compatibility.)*")
+    st.sidebar.markdown("---")
+
+    # --- Input Section (Hidden if Help or About is active) ---
     if not st.session_state.show_help and not st.session_state.show_about:
         col_img, col_prompt = st.columns([1, 2])
         
@@ -330,7 +342,7 @@ def main():
             prompt = st.text_area(
                 "Ask a question about the image or describe what you want the AI to talk about:",
                 height=150,
-                placeholder="Describe the item, tell me its historical context, and find the current market price or comparable items.",
+                value="Describe the item, tell me its historical context, and find the current market price or comparable items.",
                 key="prompt_input"
             )
             
@@ -480,6 +492,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()
-
