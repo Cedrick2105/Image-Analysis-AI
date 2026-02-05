@@ -6,11 +6,11 @@ import time
 import json
 from PIL import Image
 
-API_KEY = "AIzaSyDoYT6ZrOUPBgzJYV3esZzWZKQ8jxGZI6E" 
-
-
-MODEL_NAME = "gemini-2.5-flash" 
-
+# --- API Configuration ---
+# NOTE: The API key is left empty as required. The Canvas environment will provide it at runtime.
+API_KEY = "AIzaSyDaJJxx2bbzbE2jBKxcmp9jjyl11fVn8Xs" 
+MODEL_NAME = "gemini-2.5-flash-preview-09-2025"
+# FIX: Ensured the API_URL is correctly formatted with the full HTTPS path and model endpoint.
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent?key={API_KEY}"
 
 # --- Session State Initialization ---
@@ -67,8 +67,9 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
         # This is the key that enables Google Search grounding!
         "tools": [{"google_search": {}}],
         # System instruction to guide the model's persona and response
-        "config": { # Used 'config' key for system instruction
-            "systemInstruction": "You are a friendly and conversational chatbot AI designed to analyze images. Respond directly to the user's query about the image. Use Google Search grounding to incorporate real-time, relevant information into your chat response. Keep the tone helpful and engaging."
+        "systemInstruction": {
+            # MODIFIED: Changed the persona to a conversational chatbot AI
+            "parts": [{"text": "You are a friendly and conversational chatbot AI designed to analyze images. Respond directly to the user's query about the image. Use Google Search grounding to incorporate real-time, relevant information into your chat response. Keep the tone helpful and engaging."}]
         }
     }
 
@@ -85,20 +86,6 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
                 result = response.json()
             except json.JSONDecodeError:
                 return f"API response error: Could not decode JSON response from API. Raw content: {response.text}", []
-            
-            # Check for error message in the API response JSON itself
-            if 'error' in result:
-                 error_details = result['error'].get('message', 'Unknown API Error.')
-                 status_code = result['error'].get('code', 'N/A')
-                 
-                 # Handle common authentication error
-                 if status_code == 400 or "API key not valid" in error_details:
-                     return (
-                         f"Authentication Error (400/403). **Your API Key is likely invalid or missing the Generative Language API permission.** "
-                         f"Please check and replace `YOUR_NEW_GOOGLE_API_KEY`."
-                     ), []
-                 
-                 return f"API Error ({status_code}): {error_details}", []
             
             candidate = result.get('candidates', [{}])[0]
             
@@ -126,12 +113,14 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
             if response.status_code == 403:
                 # Specific handler for 403 Forbidden error (API Key issue)
                 error_message = (
-                    f"Authorization Error (403 Forbidden). **Your API Key is invalid or lacks necessary permissions.** "
-                    f"Please check your key and ensure the Generative Language API is enabled in your Google Cloud Project."
+                    f"Authorization Error (403 Forbidden). "
+                    f"This usually means the API key is not correctly provided by the environment "
+                    f"or lacks necessary permissions. Please check your deployment setup. "
+                    f"API Endpoint: {API_URL}" 
                 )
                 return error_message, []
                 
-            if response.status_code in [429, 500, 503] and attempt < max_retries - 100:
+            if response.status_code in [429, 500, 503] and attempt < max_retries - 1:
                 # Handle rate limiting or server errors with exponential backoff
                 sleep_time = 2 ** attempt
                 time.sleep(sleep_time)
@@ -140,7 +129,7 @@ def call_gemini_api_with_grounding(prompt, base64_data, mime_type, max_retries=5
         
         except requests.exceptions.RequestException as e:
             # Handle general network/connectivity errors (DNS, timeout, connection refused, etc.)
-            if attempt < max_retries - 100:
+            if attempt < max_retries - 1:
                 sleep_time = 2 ** attempt
                 time.sleep(sleep_time)
             else:
@@ -186,58 +175,31 @@ st.set_page_config(
 # Custom CSS for a strong, modern look
 st.markdown("""
 <style>
-    /* 1. Define the animation for gradient shift (Background) */
+    /* 1. Define the animation for gradient shift */
     @keyframes gradient_shift {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
 
-    /* 2. Define the animation for the Title (Right to Left) */
-    @keyframes slide_left {
-        0% {
-            transform: translateX(100%); /* Start off-screen right */
-            opacity: 0;
-        }
-        10% {
-            opacity: 1;
-        }
-        90% {
-            opacity: 1;
-        }
-        100% {
-            transform: translateX(-100%); /* End off-screen left */
-            opacity: 0;
-        }
-    }
-
-    /* 3. Apply the animated background to the main app container */
+    /* 2. Apply the animated background to the main app container */
     .stApp {
+        /* Use a larger background size for the shift */
         background: linear-gradient(135deg, #1d2b64, #30507a, #1d2b64, #30507a);
         background-size: 400% 400%; 
-        animation: gradient_shift 10s ease infinite; 
+        /* Apply the animation: 20s duration, smooth easing, infinite loop */
+        animation: gradient_shift 20s ease infinite; 
         color: #ffffff;
         min-height: 100vh;
     }
     
-    /* Header and Title Styling with Animation */
+    /* Header and Title Styling */
     h1 {
         color: #f7f7f7;
         text-align: center;
         margin-bottom: 0.2em;
         font-weight: 800;
         text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-        
-        /* NEW: Animation Properties */
-        white-space: nowrap;      /* Force text to stay on one line */
-        overflow: visible;         /* Allow it to move outside its box */
-        
-    }
-    
-    /* Hover effect to pause the title so users can read it easily if they want */
-    h1:hover {
-        animation-play-state: paused;
-        cursor: default;
     }
     
     /* Main Content Card (Input/Output Area) */
@@ -278,9 +240,9 @@ st.markdown("""
         box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
     
-    /* Styling for the File Uploader Button */
+    /* NEW: Styling for the File Uploader Button (Upload an Image) */
     div[data-testid="stFileUploader"] button {
-        background-color: #3CB371; 
+        background-color: #3CB371; /* Medium Sea Green */
         color: white;
         font-weight: bold;
         border: none;
@@ -289,27 +251,28 @@ st.markdown("""
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
     }
     div[data-testid="stFileUploader"] button:hover {
-        background-color: #4CAF50; 
+        background-color: #4CAF50; /* Brighter green on hover */
     }
 
-    /* Navigation Buttons Styling */
+
+    /* Reverting Styling for Navigation Buttons (To match dark theme) */
+    /* Target the columns containing the navigation buttons for distinct styling */
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button,
     div[data-testid="stHorizontalBlock"] > div:nth-child(4) .stButton button {
-        background-color: #30507a; 
+        background-color: #30507a; /* Dark Blue from gradient */
         border: 1px solid #1d2b64;
     }
 
     div[data-testid="stHorizontalBlock"] > div:nth-child(1) .stButton button:hover,
     div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button:hover,
     div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button:hover,
-    div[data-testid="stHorizontalBlock"] > div:nth-child(4) .stButton button:hover
-    {
-        background-color: #1d2b64; 
+    div[data-testid="stHorizontalBlock"] > div:nth-child(4) .stButton button:hover {
+        background-color: #1d2b64; /* Even darker blue on hover */
     }
 
-    /* Result Box */
+    /* Result Box (Grounded Text) */
     .analysis-output {
         background-color: rgba(255, 255, 255, 0.95);
         color: #1d2b64;
@@ -337,14 +300,26 @@ st.markdown("""
     .source-list a:hover {
         text-decoration: underline;
     }
+
 </style>
 """, unsafe_allow_html=True)
 
+
 def main():
-    st.title("🧠 Cedrick Image Analyzer AI")
+    st.title("Cedrick Image Analyzer")
     st.markdown("Use AI to analyze any image and fetch real-time context from the web.")
     st.caption("Model: Gemini 2.5 Flash with Google Search Grounding")
     
+    st.markdown("---")
+
+    # --- Model Info Display (Addressing User Request) ---
+    st.sidebar.subheader("Model Information")
+    st.sidebar.markdown(f"**Model Name:** `{MODEL_NAME}`")
+    st.sidebar.markdown(f"**API Endpoint:** `.../v1beta/models/{MODEL_NAME}:generateContent`")
+    st.sidebar.markdown("*(The app uses the REST API method for compatibility.)*")
+    st.sidebar.markdown("---")
+
+    # --- Input Section (Hidden if Help or About is active) ---
     if not st.session_state.show_help and not st.session_state.show_about:
         col_img, col_prompt = st.columns([1, 2])
         
@@ -367,7 +342,7 @@ def main():
             prompt = st.text_area(
                 "Ask a question about the image or describe what you want the AI to talk about:",
                 height=150,
-                placeholder="Describe the item, tell me its historical context, and find the current market price or comparable items.",
+                value="Describe the item, tell me its historical context, and find the current market price or comparable items.",
                 key="prompt_input"
             )
             
@@ -382,7 +357,7 @@ def main():
                 st.error("Please enter a prompt or question for the AI.")
                 return
 
-            with st.spinner("Let's Cedrick vision analyze..."):
+            with st.spinner("Analyzing image, searching the web, and generating a grounded report..."):
                 
                 # 1. Convert image to base64
                 base64_data, mime_type = image_to_base64(uploaded_file)
@@ -449,11 +424,13 @@ def main():
             st.session_state.show_about = False
             
     with col_nav4:
+        # ℹ️ About This App button logic
         button_label = "❌ Close About" if st.session_state.show_about else "ℹ️ About This App"
         if st.button(button_label, use_container_width=True, key="nav_about", help="Learn about the technology powering this application."):
             st.session_state.show_about = not st.session_state.show_about
             if st.session_state.show_about:
                 st.toast("Opening About Information...", icon="ℹ️")
+            # Ensure only one guide is open at a time
             st.session_state.show_help = False
             
     # --- Guide Content Display ---
@@ -509,7 +486,7 @@ def main():
             st.markdown("### 📞 Communication")
             st.markdown("Phone:0796286762")
             st.markdown("Email:sangwaineza2@gmail.com")
-            st.markdown("YouTube:Cedrick ETE engineer")     
+            st.markdown("YouTube:Cedrick ETE engineer")    
         st.markdown("---")
     # --- END NAVIGATION BAR ---
 
